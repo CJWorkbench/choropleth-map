@@ -11,6 +11,6 @@
             "name": "Key column",
             "id_name": "key_column",
             "type": "column"
-        },
+        }
     ]
 }
