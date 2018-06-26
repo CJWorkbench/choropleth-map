@@ -8,8 +8,22 @@
     "html_output" : true,
     "parameters": [
         {
+            "name": "Map type",
+            "id_name": "geo-type",
+            "type": "menu",
+            "menu_items": "Preset|Upload geoJSON"
+        },
+        {
+            "name": "Upload GeoJSON",
+            "id_name": "map-geojson",
+            "visible_if": {
+                "id_name": "geo-type",
+                "value": "Upload geoJSON"
+            }
+        },
+        {
             "name": "Key column",
-            "id_name": "key_column",
+            "id_name": "key-column",
             "type": "column"
         }
     ]
