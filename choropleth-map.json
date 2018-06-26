@@ -16,6 +16,7 @@
         {
             "name": "Upload GeoJSON",
             "id_name": "map-geojson",
+            "type": "custom",
             "visible_if": {
                 "id_name": "geo-type",
                 "value": "Upload geoJSON"
