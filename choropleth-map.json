@@ -30,7 +30,7 @@
         {
             "name": "Mapbox API token",
             "id_name": "map-token",
-            "type": "custom",
+            "type": "custom"
         },
         {
             "name": "We provide a default token from the service Mapbox for displaying the map that you can feel free to use. However, if you expect your visualization to receive a high amount of traffic, we suggest that you register a Mapbox account and use your own token.",
