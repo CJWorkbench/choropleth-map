@@ -36,6 +36,11 @@
             "name": "We provide a default token from the service Mapbox for displaying the map that you can feel free to use. However, if you expect your visualization to receive a high amount of traffic, we suggest that you register a Mapbox account and use your own token.",
             "id_name": "token-notes",
             "type": "statictext"
+        },
+        {
+            "name": "Layers",
+            "id_name": "map-layers",
+            "type": "custom"
         }
     ]
 }
