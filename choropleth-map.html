@@ -107,16 +107,24 @@ does not seem to be well-supported enough to bother with.
 $(document).ready(function() {
     console.log(workbench);
 
-    // URL regex to parse for wfModuleId
-    var urlPattern = /^(https?\:\/\/.*\/api\/wfmodules\/)([0-9]+).*/;
-
-    var urlMatch = urlPattern.exec(window.location.href);
-    const urlBase = urlMatch[1];
-    const wfModuleId = urlMatch[2]
-    if(!urlMatch) {
-        $('#data-tag').html('Error parsing url.');
+    // Color ranges for choropleth map, using Material Design colors
+    // as found here: https://www.materialui.co/colors (lowest is 100, highest is 900)
+    // Note that the color "keys" must match the color options in the MapLayerEditor parameter
+    const colorRanges = {
+        '#F44336': ['#FFCDD2', '#B71C1C'],  // red
+        '#FF9800': ['#FFE0B2', '#E65100'],  // orange
+        '#FFEB3B': ['#FFF9C4', '#F57F17'],  // yellow
+        '#4CAF50': ['#C8E6C9', '#1B5E20'],  // green
+        '#009688': ['#B2DFDB', '#004D40'],  // teal
+        '#2196F3': ['#BBDEFB', '#0D47A1'],  // blue
+        '#9C27B0': ['#E1BEE7', '#4A148C'],  // purple
+        '#607D8B': ['#CFD8DC', '#263238'],  // blue grey
     }
 
+    // Color for displaying N/A
+    const naColor = '#000000';
+
+    // Parse the geoJSON parameter
     var geoJSONParam = {};
     var geoJSON = {};
     var geoJSONSource = 0;  // 0 correspond to Preset, 1 correspond to user upload
@@ -129,6 +137,7 @@ $(document).ready(function() {
         return;
     }
 
+    // Parse the token parameter
     var tokenParam = {};
     var token = '';
     try {
@@ -139,11 +148,19 @@ $(document).ready(function() {
         return;
     }
 
+    // Get key column
     var keyColumn = workbench.params['key-column'];
     if(keyColumn == '') {
         $(document.body).html('<p>Please specify a column for location.</p>');
         return;
     }
+
+    // Parse the layers parameter
+    var layerParam = {}
+    try {
+        layerParam = JSON.parse(workbench.params['map-layers']);
+    } catch(e) {}
+    console.log(layerParam);
 
     // Expand the geoJSON data to include our input data
     // We first transform the input data into a dictionary with the location as keys
@@ -201,7 +218,25 @@ $(document).ready(function() {
     console.log(dataExtremas);
     console.log(isNumeric);
 
-    var numLevels = 10;
+    // We now filter down the columns that need to be displayed according to
+    // the layer editor and isNumeric values
+    var mapColumns = workbench.input.columns.filter(function(col) {
+        if(col == keyColumn) {
+            return false;
+        }
+        if(col in layerParam) {
+            return (isNumeric[col] && layerParam[col].selected);
+        }
+    });
+
+    // We now generate the color levels for each column on the map,
+    // based on their number of levels and colors
+    var layerColors = {};
+    mapColumns.forEach(function(col) {
+        console.log(layerParam[col].color);
+        let range = colorRanges[layerParam[col].color.toUpperCase()];
+        layerColors[col] = generateColor(range[1], range[0], layerParam[col].levels);
+    });
 
     var map = L.map('map-div').setView([37.8, -96], 4);
     L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=' + token, {
@@ -209,28 +244,25 @@ $(document).ready(function() {
         attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>'
     }).addTo(map);
 
-    var colorLvls = generateColor('#800026', '#FFEDA0', numLevels);
-    console.log(colorLvls);
-
-    function getColor(val, extremas, numLvls) {
+    function getColor(val, extremas, numLevels, colorLevels) {
         if(val == undefined) {
-            return '#000000';
+            return naColor;
         }
-        let step = (extremas[1] - extremas[0]) / numLvls;
+        let step = (extremas[1] - extremas[0]) / numLevels;
         let lvl = Math.floor((val - 1 - extremas[0]) / step);
         lvl = (lvl < 0) ? 0 : lvl;
         return (
-            '#' + colorLvls[lvl]
+            '#' + colorLevels[lvl]
         );
     }
 
     // Create a layer style for each column except for the location column
     var styles = {};
-    workbench.input.columns.forEach(function(col) {
+    mapColumns.forEach(function(col) {
         if(col != keyColumn) {
             styles[col] = function(feature) {
                 return {
-                    fillColor: getColor(feature.properties[colPrefix + col], dataExtremas[col], numLevels),
+                    fillColor: getColor(feature.properties[colPrefix + col], dataExtremas[col], layerParam[col].levels, layerColors[col]),
                     weight: 2,
                     opacity: 1,
                     color: 'white',
@@ -276,10 +308,10 @@ $(document).ready(function() {
         if(!activeLayerName) {
             return;
         }
-        let step = (dataExtremas[activeLayerName][1] - dataExtremas[activeLayerName][0]) / numLevels;
-        for(let i = 0; i < numLevels; i ++) {
+        let step = (dataExtremas[activeLayerName][1] - dataExtremas[activeLayerName][0]) / layerParam[activeLayerName].levels;
+        for(let i = 0; i < layerParam[activeLayerName].levels; i ++) {
             this._div.innerHTML += (
-                '<i style="background:#' + colorLvls[i] + '"></i>'
+                '<i style="background:#' + layerColors[activeLayerName][i] + '"></i>'
                 + (dataExtremas[activeLayerName][0] + step * i).toString() + '-' + (dataExtremas[activeLayerName][0] + step * (i + 1)).toString() + '<br/>'
             );
         }
