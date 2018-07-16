@@ -23,6 +23,15 @@
             }
         },
         {
+            "name": "Presets",
+            "id_name": "map-presets",
+            "type": "custom",
+            "visible_if": {
+                "id_name": "geo-type",
+                "value": "Preset"
+            }
+        },
+        {
             "name": "Key column",
             "id_name": "key-column",
             "type": "column"
