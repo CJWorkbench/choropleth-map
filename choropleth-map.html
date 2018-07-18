@@ -4,7 +4,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ==" crossorigin=""/>
 </head>
 <body>
-    <div id='map-div' style='height:315px'></div>
+    <div id='map-div' style='height:315px'>If you can't see the map and you are using a custom API token, check if the token is valid.</div>
 </body>
 <style>
 #map-div {
@@ -127,14 +127,29 @@ $(document).ready(function() {
     // Parse the geoJSON parameter
     var geoJSONParam = {};
     var geoJSON = {};
-    var geoJSONSource = 0;  // 0 correspond to Preset, 1 correspond to user upload
-    try {
-        geoJSONParam = JSON.parse(workbench.params['map-geojson']);
-        geoJSON = geoJSONParam.geojson;
-        geoJSONSource = workbench.params['geo-type'];
-    } catch(e) {
-        $(document.body).html('<p>Please specify a map geometry</p>');
-        return;
+    // The source is from the geo-type parameter; 0 correspond to Preset, 1 correspond to user upload
+    var geoJSONSource = workbench.params['geo-type'];
+    console.log(geoJSONSource);
+    if(geoJSONSource == 0) {
+        try {
+            geoJSONParam = JSON.parse(workbench.params['map-presets']);
+            if(geoJSONParam.preset == 'select') {
+                $(document.body).html('<p>Please select from a preset</p>');
+                return;
+            }
+            geoJSON = geoJSONParam.geojson;
+        } catch(e) {
+            $(document.body).html('<p>Please specify a map geometry</p>');
+            return;
+        }
+    } else if(geoJSONSource == 1) {
+        try {
+            geoJSONParam = JSON.parse(workbench.params['map-geojson']);
+            geoJSON = geoJSONParam.geojson;
+        } catch(e) {
+            $(document.body).html('<p>Please specify a map geometry</p>');
+            return;
+        }
     }
 
     // Parse the token parameter

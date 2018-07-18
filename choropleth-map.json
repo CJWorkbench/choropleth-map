@@ -38,8 +38,20 @@
         },
         {
             "name": "Mapbox API token",
-            "id_name": "map-token",
-            "type": "custom"
+            "id_name": "map-token-type",
+            "type": "menu",
+            "menu_items": "Default|Custom",
+            "default": 0
+        },
+        {
+            "name": "Custom Mapbox API token",
+            "id_name": "mapbox-token-custom",
+            "type": "string",
+            "multiline": true,
+            "visible_if": {
+                "id_name": "mapbox-token-type",
+                "value": "Custom"
+            }
         },
         {
             "name": "We provide a default token from the service Mapbox for displaying the map that you can feel free to use. However, if you expect your visualization to receive a high amount of traffic, we suggest that you register a Mapbox account and use your own token.",
