@@ -4,11 +4,40 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ==" crossorigin=""/>
 </head>
 <body>
-    <div id='map-div' style='height:315px'>If you can't see the map and you are using a custom API token, check if the token is valid.</div>
+    <div id='container-div'>
+        <div id='map-div'>
+        </div>
+        <div id='error-div'>
+            <div id='error-window' class='error-display'></div>
+        </div>
+    </div>
 </body>
 <style>
-#map-div {
+#container-div {
+    position: relative;
+    width: 100%;
+    height: 340px;
     top: 52px;
+}
+#map-div {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+}
+#error-div {
+    display: none;
+    position: absolute;
+    height: 100%;
+    width: 100%;
+}
+.error-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    font-size: 24px;
+    font-family: Arial, Helvetica, sans-serif;
 }
 .info {
     padding: 6px 8px;
@@ -100,12 +129,22 @@ function generateColor(colorStart,colorEnd,colorCount) {
 }
 </script>
 <script>
+// This is a hackish way to force the html output to refresh after a parameter is updated on the server
+window.addEventListener('message', receiveMessage, false);
+
+function receiveMessage(event) {
+    if(event.data.refresh) {
+        location.reload();
+    }
+}
+</script>
+<script>
 /*
 This module is done in plain HTML/Javascript because react-leaflet-choropleth
 does not seem to be well-supported enough to bother with.
 */
 $(document).ready(function() {
-    console.log(workbench);
+    //console.log(workbench);
 
     // Color ranges for choropleth map, using Material Design colors
     // as found here: https://www.materialui.co/colors (lowest is 100, highest is 900)
@@ -122,24 +161,36 @@ $(document).ready(function() {
     }
 
     // Color for displaying N/A
-    const naColor = '#000000';
+    const naColor = '#FFFFFF';
+
+    function formatNumber(num) {
+        if(num % 1 == 0) {
+            return num.toString();
+        }
+        return num.toFixed(2);
+    }
+
+    function displayError(message) {
+        $('#map-div').hide();
+        $('#error-window').text(message);
+        $('#error-div').show();
+    }
 
     // Parse the geoJSON parameter
     var geoJSONParam = {};
     var geoJSON = {};
     // The source is from the geo-type parameter; 0 correspond to Preset, 1 correspond to user upload
     var geoJSONSource = workbench.params['geo-type'];
-    console.log(geoJSONSource);
     if(geoJSONSource == 0) {
         try {
             geoJSONParam = JSON.parse(workbench.params['map-presets']);
             if(geoJSONParam.preset == 'select') {
-                $(document.body).html('<p>Please select from a preset</p>');
+                displayError('Please select from a preset');
                 return;
             }
             geoJSON = geoJSONParam.geojson;
         } catch(e) {
-            $(document.body).html('<p>Please specify a map geometry</p>');
+            displayError('Please select from a preset');
             return;
         }
     } else if(geoJSONSource == 1) {
@@ -147,26 +198,40 @@ $(document).ready(function() {
             geoJSONParam = JSON.parse(workbench.params['map-geojson']);
             geoJSON = geoJSONParam.geojson;
         } catch(e) {
-            $(document.body).html('<p>Please specify a map geometry</p>');
+            displayError('Please upload a GeoJSON file');
             return;
         }
     }
 
-    // Parse the token parameter
-    var tokenParam = {};
+    // Get the location property name from geoJSONParam and map type
+    // Default is 'name' if we are using presets
+    var locationKey = 'name';
+    // Otherwise, we are using a user-chosen one
+    if(geoJSONSource == 1) {
+        locationKey = geoJSONParam.keyProperty;
+    }
+
+    // Get Mapbox token from parameters
+    var tokenSource = workbench.params['map-token-type'];
     var token = '';
-    try {
-        tokenParam = JSON.parse(workbench.params['map-token']);
-        token = tokenParam.tokenVal;
-    } catch(e) {
-        $(document.body).html('<p>Token is not provided</p>');
-        return;
+    if(tokenSource == 0) {
+        // Default token
+        // Mapbox does not require the default token to be kept secret; this is the default token
+        // of my personal account
+        token = 'pk.eyJ1IjoiaGFycnktdGMtemhhbmciLCJhIjoiY2ppeDhoZ3d2MGUxYjNrcGRxdzlwZ2g0aSJ9.JphK_2HqLSJ1GR3Fpkugag';
+    } else if(tokenSource == 1) {
+        // Custom token
+        token = workbench.params['mapbox-token-custom'];
+        if(token.trim().length == 0) {
+            displayError('Token is not provided');
+            return;
+        }
     }
 
     // Get key column
     var keyColumn = workbench.params['key-column'];
     if(keyColumn == '') {
-        $(document.body).html('<p>Please specify a column for location.</p>');
+        displayError('Please specify the location column')
         return;
     }
 
@@ -175,13 +240,12 @@ $(document).ready(function() {
     try {
         layerParam = JSON.parse(workbench.params['map-layers']);
     } catch(e) {}
-    console.log(layerParam);
 
     // Expand the geoJSON data to include our input data
     // We first transform the input data into a dictionary with the location as keys
     var dataDict = {};
     workbench.input.rows.forEach(function(row) {
-        let location = row[keyColumn];
+        let location = row[keyColumn].toString().toLowerCase();
         dataDict[location] = {};
         for(let key in row) {
             if(key != keyColumn) {
@@ -189,19 +253,17 @@ $(document).ready(function() {
             }
         }
     });
-    console.log(dataDict);
     // We then combine the data into the "properties" field of the geoJSON data
-    //console.log(geoJSON);
     // Add a prefix here to prevent conflict with geoJSON's original properties
     const colPrefix = 'wb-';
     for(let i = 0; i < geoJSON.features.length; i += 1) {
-        if(dataDict[geoJSON.features[i].properties.name]) {
-            for(let key in dataDict[geoJSON.features[i].properties.name]) {
-                geoJSON.features[i].properties[colPrefix + key] = dataDict[geoJSON.features[i].properties.name][key];
+        let featureName = geoJSON.features[i].properties[locationKey].toString().toLowerCase()
+        if(dataDict[featureName]) {
+            for(let key in dataDict[featureName]) {
+                geoJSON.features[i].properties[colPrefix + key] = dataDict[featureName][key];
             }
         }
     }
-    console.log(geoJSON);
 
     // We run another pass over the input data to get the extremas of each value on the map
     // as well as whether the column is numeric values
@@ -230,17 +292,14 @@ $(document).ready(function() {
         }
     });
 
-    console.log(dataExtremas);
-    console.log(isNumeric);
-
     // We now filter down the columns that need to be displayed according to
     // the layer editor and isNumeric values
     var mapColumns = workbench.input.columns.filter(function(col) {
         if(col == keyColumn) {
             return false;
         }
-        if(col in layerParam) {
-            return (isNumeric[col] && layerParam[col].selected);
+        if(col in layerParam.layers) {
+            return (isNumeric[col] && layerParam.layers[col].selected);
         }
     });
 
@@ -248,9 +307,8 @@ $(document).ready(function() {
     // based on their number of levels and colors
     var layerColors = {};
     mapColumns.forEach(function(col) {
-        console.log(layerParam[col].color);
-        let range = colorRanges[layerParam[col].color.toUpperCase()];
-        layerColors[col] = generateColor(range[1], range[0], layerParam[col].levels);
+        let range = colorRanges[layerParam.layers[col].color.toUpperCase()];
+        layerColors[col] = generateColor(range[1], range[0], layerParam.layers[col].levels);
     });
 
     var map = L.map('map-div').setView([37.8, -96], 4);
@@ -277,7 +335,7 @@ $(document).ready(function() {
         if(col != keyColumn) {
             styles[col] = function(feature) {
                 return {
-                    fillColor: getColor(feature.properties[colPrefix + col], dataExtremas[col], layerParam[col].levels, layerColors[col]),
+                    fillColor: getColor(feature.properties[colPrefix + col], dataExtremas[col], layerParam.layers[col].levels, layerColors[col]),
                     weight: 2,
                     opacity: 1,
                     color: 'white',
@@ -288,9 +346,11 @@ $(document).ready(function() {
         }
     });
 
-    // Define a variable to hold the active layer for style resetting
-    var activeLayer = undefined;
-    var activeLayerName = '';
+    // Selects an activeLayer according to layerParams.lastEdited; if it is not on the map,
+    // default to the first layer to be displayed
+    var activeLayerName = mapColumns.includes(layerParam.lastEdited) ? layerParam.lastEdited : mapColumns[0];
+    // We will define this later
+    var activeLayer;
 
     // Info overlay on hover
     var info = L.control();
@@ -304,7 +364,7 @@ $(document).ready(function() {
             this._div.innerHTML = '<h4>Hover over an area to see data</h4>';
         } else {
             this._div.innerHTML = (
-                '<h4>' + props.name + '</h4>' +
+                '<h4>' + props[locationKey] + '</h4>' +
                 '<b>' + activeLayerName + '</b>&nbsp;<span>' + (props[colPrefix + activeLayerName] ? props[colPrefix + activeLayerName] : 'N/A') + '</span>'
             );
         }
@@ -323,11 +383,11 @@ $(document).ready(function() {
         if(!activeLayerName) {
             return;
         }
-        let step = (dataExtremas[activeLayerName][1] - dataExtremas[activeLayerName][0]) / layerParam[activeLayerName].levels;
-        for(let i = 0; i < layerParam[activeLayerName].levels; i ++) {
+        let step = (dataExtremas[activeLayerName][1] - dataExtremas[activeLayerName][0]) / layerParam.layers[activeLayerName].levels;
+        for(let i = 0; i < layerParam.layers[activeLayerName].levels; i ++) {
             this._div.innerHTML += (
                 '<i style="background:#' + layerColors[activeLayerName][i] + '"></i>'
-                + (dataExtremas[activeLayerName][0] + step * i).toString() + '-' + (dataExtremas[activeLayerName][0] + step * (i + 1)).toString() + '<br/>'
+                + formatNumber(dataExtremas[activeLayerName][0] + step * i) + '-' + formatNumber(dataExtremas[activeLayerName][0] + step * (i + 1)) + '<br/>'
             );
         }
     };
@@ -365,23 +425,20 @@ $(document).ready(function() {
         layers[col] = L.geoJson(geoJSON, {style: styles[col], onEachFeature: onEachFeature});
     }
 
+    // Set the activeLayer after layers have been defined
+    activeLayer = layers[activeLayerName];
+
     // Create layer-switching control on the map
     var layerSwitcher = L.control({position: 'bottomleft'});
     layerSwitcher.onAdd = function(map) {
         this._div = L.DomUtil.create('div', 'info');
-        let checkNext = true;
         for(var col in layers) {
             this._div.innerHTML += (
-                '<div><input type="radio" value="' + col + '" name="layer-switch"' + (checkNext ? ' checked ' : '' ) + '/><label>' + col + '</label></div>'
+                '<div><input type="radio" value="' + col + '" name="layer-switch"' + ((col == activeLayerName) ? ' checked ' : '' ) + '/><label>' + col + '</label></div>'
             );
-            if(checkNext) {
-                activeLayer = layers[col];
-                activeLayerName = col;
-                activeLayer.addTo(map);
-                legend.update();
-                checkNext = false;
-            }
         }
+        activeLayer.addTo(map);
+        legend.update();
         $(this._div).find('input[type="radio"][name="layer-switch"]').change(function() {
             let checkedVal = $('input[type="radio"][name="layer-switch"]:checked').val();
             for(var col in layers) {
@@ -395,6 +452,12 @@ $(document).ready(function() {
         return this._div;
     }
     layerSwitcher.addTo(map);
+
+    map.fitBounds(activeLayer.getBounds());
+
+    try {
+        $('#map-error').show();
+    } catch(e) {}
 });
 </script>
 </html>

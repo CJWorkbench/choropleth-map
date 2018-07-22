@@ -4,7 +4,7 @@
     "category" : "Visualize",
     "icon" : "linechart",
     "description" : "Create a choropleth-map",
-    "help_url":"modules/visualization/choropleth-map",
+    "help_url": "modules/visualization/choropleth-map",
     "html_output" : true,
     "parameters": [
         {
@@ -32,9 +32,21 @@
             }
         },
         {
+            "name": "Key column",
+            "id_name": "key-column",
+            "type": "column"
+        },
+        {
             "name": "Layers",
             "id_name": "map-layers",
             "type": "custom"
+        },
+        {
+            "name": "Mapbox API token",
+            "id_name": "map-token-type",
+            "type": "menu",
+            "menu_items": "Default|Custom",
+            "default": 0
         },
         {
             "name": "Custom Mapbox API token",
@@ -45,18 +57,6 @@
                 "id_name": "map-token-type",
                 "value": "Custom"
             }
-        },
-        {
-            "name": "Key column",
-            "id_name": "key-column",
-            "type": "column"
-        },
-        {
-            "name": "Mapbox API token",
-            "id_name": "map-token-type",
-            "type": "menu",
-            "menu_items": "Default|Custom",
-            "default": 0
         },
         {
             "name": "We provide a default token from the service Mapbox for displaying the map that you can feel free to use. However, if you expect your visualization to receive a high amount of traffic, we suggest that you register a Mapbox account and use your own token.",
