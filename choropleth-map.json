@@ -32,7 +32,7 @@
             }
         },
         {
-            "name": "Key column",
+            "name": "Location column",
             "id_name": "key-column",
             "type": "column"
         },
