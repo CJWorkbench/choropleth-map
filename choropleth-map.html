@@ -317,8 +317,14 @@ $(document).ready(function() {
         attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>'
     }).addTo(map);
 
+    // Create an invisible layer to set the map view to correct area
     var dummyLayer = L.geoJSON(geoJSON);
     map.fitBounds(dummyLayer.getBounds());
+
+    // Stop rendering if there are no layers to show
+    if(mapColumns.length == 0) {
+        return;
+    }
 
     function getColor(val, extremas, numLevels, colorLevels) {
         if(val == undefined) {
@@ -348,10 +354,6 @@ $(document).ready(function() {
             }
         }
     });
-
-    if(mapColumns.length == 0) {
-        return;
-    }
 
     // Selects an activeLayer according to layerParams.lastEdited; if it is not on the map,
     // default to the first layer to be displayed
@@ -459,8 +461,6 @@ $(document).ready(function() {
         return this._div;
     }
     layerSwitcher.addTo(map);
-
-    map.fitBounds(activeLayer.getBounds());
 
     try {
         $('#map-error').show();
