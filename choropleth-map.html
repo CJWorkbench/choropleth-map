@@ -129,14 +129,13 @@ function generateColor(colorStart,colorEnd,colorCount) {
 }
 </script>
 <script>
-// This is a hackish way to force the html output to refresh after a parameter is updated on the server
-window.addEventListener('message', receiveMessage, false);
-
-function receiveMessage(event) {
-    if(event.data.refresh) {
+// Reload the map on revision change.
+function onHashChange(event) {
+    if(event.isTrusted) {
         location.reload();
     }
 }
+window.addEventListener('hashchange', onHashChange, false);
 </script>
 <script>
 /*
